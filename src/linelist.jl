@@ -236,33 +236,36 @@ tentotheOrMissing(x) = x == 0.0 ? missing : 10.0^x
 idOrMissing(x) = x == 0.0 ? missing : x
 
 function parse_kurucz_linelist(f; vacuum=false)
-    lines = Line[]
-    for row in eachline(f)
-        row == "" && continue #skip empty lines
+    lines = collect(eachline(f))
+    linelist = map(enumerate(lines)) do (index, line)
+        try
+            line == "" && return nothing
 
-        #some linelists have a missing column in the wavelenth region
-        if length(row) == 159 
-            row = " " * row
+            # Extract energy levels and compute their values
+            E_levels = map([25:36, 53:64]) do range
+                abs(parse(Float64, line[range])) * c_cgs * hplanck_eV
+            end
+
+            wl_transform = vacuum ? identity : air_to_vacuum
+
+            # Create a Line object with transformed and parsed values
+            Line(
+                wl_transform(parse(Float64, line[1:11]) * 1e-7), # Convert from nm to cm
+                parse(Float64, line[12:18]),
+                Species(line[19:24]),
+                min(E_levels...),
+                tentotheOrMissing(parse(Float64, line[81:86])),
+                tentotheOrMissing(parse(Float64, line[87:92])),
+                idOrMissing(parse(Float64, line[93:98]))
+            )
+        catch e
+            println("Parsing failed for line $index: $line")
+            return nothing
+            # Optionally log the error e for more detailed debugging
         end
-        
-        #kurucz provides wavenumbers for "level 1" and "level 2", which is which is 
-        #determined by parity
-        E_levels = map((row[25:36], row[53:64])) do s
-            #abs because Kurucz multiplies predicted values by -1
-            abs(parse(Float64,s)) * c_cgs * hplanck_eV
-        end
-
-        wl_transform = vacuum ? identity : air_to_vacuum
-
-        push!(lines, Line(wl_transform(parse(Float64, row[1:11])*1e-7), #convert from nm to cm
-                     parse(Float64, row[12:18]),
-                     Species(row[19:24]),
-                     min(E_levels...),
-                     tentotheOrMissing(parse(Float64, row[81:86])),
-                     tentotheOrMissing(parse(Float64, row[87:92])),
-                     idOrMissing(parse(Float64, row[93:98]))))
     end
-    lines
+    linelist = map(x -> x::Korg.Line{Float64, Float64, Float64, Float64, Float64, Float64}, filter(!isnothing, linelist))
+    return  linelist
 end
 
 function parse_kurucz_molecular_linelist(f; vacuum=false)
