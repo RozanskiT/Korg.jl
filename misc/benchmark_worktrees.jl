@@ -1,8 +1,9 @@
 #!/usr/bin/env julia
 # From Korg-benchmarks: julia --project=benchmark --threads=10 misc/benchmark_worktrees.jl
 # Each worktree runs in a fresh Julia process, with one BLAS thread.
-# Each case gets an excluded warmup and one measured synthesis, as in the upstream suite.
+# Each case gets an excluded warmup and up to three measured syntheses (300 s budget).
 # Line-list loading is excluded. Allocated MiB is cumulative allocation, not peak RAM.
+# Setup instructions and recorded results: misc/benchmark_worktrees.md.
 
 using BenchmarkTools, LinearAlgebra, Pkg, Printf, Statistics
 
